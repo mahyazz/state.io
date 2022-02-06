@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
+#include <SDL2/SDL_ttf.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -11,88 +12,45 @@ int grid_height = 5;
 int window_width = 600 + 1;
 int window_height = 600 + 1;
 
-void draw_background(SDL_Renderer *renderer, SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderClear(renderer);
-}
+Uint32 colors[][2] = {
+    {0xfffaf9f8, 0xfffaf9f8},  // background - off-white
+    {0xffe6e2de, 0xffbdb5ad},  // free - grey
+    {0xffa1dfc0, 0xff90c49f},  // player 1 - green
+    {0xfff4e8ad, 0xffecda78},  // player 2 - blue
+    {0xabababff, 0x696969ff},  // player 3 - pink
+    {0xff99eeff, 0xff4ce1ff},  // player 4 - yellow
+    {0xffe5b7d2, 0xffe09ec1},  // player 4 - purple
+};
 
-void draw_grids(SDL_Renderer *renderer, int window_width, int window_height,
-                SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+int board[5][5] = {
+    {0, 0, 1, 2, 0},  // row
+    {0, 1, 1, 1, 0},  // row
+    {1, 3, 1, 1, 0},  // row
+    {0, 1, 1, 0, 0},  // row
+    {0, 0, 4, 1, 0},  // row
+};
 
-    for (int x = 0; x < 1 + grid_width * cell_size; x += cell_size) {
-        SDL_RenderDrawLine(renderer, x, 0, x, window_height);
-    }
-
-    for (int y = 0; y < 1 + grid_height * cell_size; y += cell_size) {
-        SDL_RenderDrawLine(renderer, 0, y, window_width, y);
-    }
-}
-
-void fill_cell(SDL_Renderer *renderer, int x, int y, SDL_Color color,
+void fill_cell(SDL_Renderer *renderer, int x, int y, Uint32 color,
                Uint32 scolor) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-
-    SDL_Rect cell;
-    cell.x = x;
-    cell.y = y;
-    cell.w = cell_size;
-    cell.h = cell_size;
-
-    SDL_RenderFillRect(renderer, &cell);
-
+    x *= cell_size;
+    y *= cell_size;
+    boxColor(renderer, x, y, x + cell_size, y + cell_size, color);
+    rectangleColor(renderer, x, y, x + cell_size, y + cell_size, scolor);
     filledCircleColor(renderer, x + 60, y + 60, 20, scolor);
 }
 
 void draw_map(SDL_Renderer *renderer) {
-    // colors
-    SDL_Color background = {233, 233, 233, 255};       // off-white
-    SDL_Color grid_line_color = {200, 200, 200, 255};  // gray
-    SDL_Color free_land_color = {108, 122, 137, 1};    // blue grey
-    SDL_Color player_a_color = {217, 30, 24, 1};       // red
-    SDL_Color player_b_color = {38, 166, 91, 1};       // green
-    SDL_Color player_c_color = {0, 0, 255, 255};       // blue
-
-    Uint32 free_land_scolor = 0xFF1E1800;  // black
-    Uint32 player_a_scolor = 0xFF00008B;   // dark red
-    Uint32 player_b_scolor = 0xFF008000;   // dark green
-    Uint32 player_c_scolor = 0xFF800000;   // dark blue
-
     // background
-    draw_background(renderer, background);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderClear(renderer);
 
-    // player land
-    fill_cell(renderer, 0 * cell_size, 0 * cell_size, player_a_color,
-              player_a_scolor);
-    fill_cell(renderer, 2 * cell_size, 2 * cell_size, player_b_color,
-              player_b_scolor);
-    fill_cell(renderer, 1 * cell_size, 4 * cell_size, player_c_color,
-              player_c_scolor);
-
-    // free land
-    fill_cell(renderer, 1 * cell_size, 0 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 0 * cell_size, 1 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 1 * cell_size, 1 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 2 * cell_size, 1 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 0 * cell_size, 2 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 1 * cell_size, 2 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 4 * cell_size, 2 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 0 * cell_size, 3 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 1 * cell_size, 3 * cell_size, free_land_color,
-              free_land_scolor);
-    fill_cell(renderer, 4 * cell_size, 3 * cell_size, free_land_color,
-              free_land_scolor);
-
-    // grid
-    draw_grids(renderer, window_width, window_height, grid_line_color);
+    // land
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            int type = board[i][j];
+            fill_cell(renderer, j, i, colors[type][0], colors[type][1]);
+        }
+    }
 
     // render
     SDL_RenderPresent(renderer);
@@ -109,6 +67,7 @@ int main() {
     // create window and renderer
     SDL_Window *window;
     SDL_Renderer *renderer;
+
     if (SDL_CreateWindowAndRenderer(window_width, window_height, 0, &window,
                                     &renderer) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -122,20 +81,19 @@ int main() {
     draw_map(renderer);
 
     // event handling
-    SDL_bool quit = SDL_FALSE;
-
+    bool quit = false;
     while (!quit) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
                 case SDL_QUIT:
-                    quit = SDL_TRUE;
+                    quit = true;
                     break;
             }
         }
     }
 
-    // quitting
+    // cleanup
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
