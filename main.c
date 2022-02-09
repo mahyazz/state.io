@@ -8,9 +8,20 @@
 
 #include "soldier_list.c"
 
-int grid_width = 5;
-int grid_height = 5;
+int bar_height = 30;
+int map_size = 5;
 int window_width = 600 + 1;
+int max_players = 5;
+int max_soldiers = 30;
+int board[5][5];
+int soldiers[5][5];
+int score = 0;
+
+SDL_Renderer *renderer;
+SDL_Surface *surface;
+SDL_Texture *texture;
+SDL_Surface *image;
+SDL_Surface *potion;
 
 Uint32 colors[][2] = {
     {0xfffaf9f8, 0xfffaf9f8},  // background - off-white
@@ -21,10 +32,6 @@ Uint32 colors[][2] = {
     {0xff99eeff, 0xff4ce1ff},  // player 5 - yellow
     {0xffe5b7d2, 0xffe09ec1},  // potion - purple
 };
-
-int max_players = 5;
-int max_soldiers = 30;
-int map_size = 5;
 
 int map[3][5][5] = {{
                         {0, 0, 2, 3, 0},
@@ -48,16 +55,67 @@ int map[3][5][5] = {{
                         {1, 1, 1, 3, 0},
                     }};
 
-int board[5][5];
-int soldiers[5][5];
-SDL_Renderer *renderer;
-SDL_Surface *surface;
+// ---------------------------- Score -----------------------------
+
+int find_winner() {
+    bool all_the_same = true;
+    int winner = 0;
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            int owner = board[i][j];
+            if (owner >= 2) {
+                if (!winner) {
+                    winner = owner;
+                } else {
+                    all_the_same = all_the_same && winner == owner;
+                }
+            }
+        }
+    }
+    return all_the_same ? winner : 0;
+}
+
+void determine_score(int winner) {
+    if (winner == 2) {
+        score += 100;
+    } else {
+        score -= 50;
+    }
+}
+
+void show_result(int winner) {
+    if (winner == 2) {
+        image = SDL_LoadBMP("winimage.bmp");
+    } else {
+        image = SDL_LoadBMP("loseimage.bmp");
+    }
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
+    SDL_Rect dstrect = {0, 0, window_width, window_width};
+    SDL_RenderCopy(renderer, texture, NULL, &dstrect);
+}
+
+// ---------------------------- Navigation Bar -----------------------------
+
+void draw_bar() {
+    hlineColor(renderer, 0, window_width, window_width, 0x88000000);
+    boxColor(renderer, 0, window_width - 1, window_width,
+             window_width + bar_height - 1, colors[1][1]);
+    char *str1 = "Menu";
+    char *str2 = "Score:";
+    stringColor(renderer, 10, window_width + 13, str1, 0x88000000);
+    stringColor(renderer, window_width - 90, window_width + 13, str2,
+                0x88000000);
+    char str[10];
+    sprintf(str, "%d", score);
+    stringColor(renderer, window_width - 40, window_width + 13, str,
+                0x88000000);
+}
 
 // ---------------------------- Map -----------------------------
 
 void set_board(int k) {
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
             board[i][j] = map[k][i][j];
         }
     }
@@ -84,8 +142,8 @@ void draw_map() {
     SDL_RenderClear(renderer);
 
     // land
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
             int type = board[i][j];
             fill_cell(i, j, colors[type][0], colors[type][1]);
         }
@@ -93,8 +151,8 @@ void draw_map() {
 }
 
 void update_board() {
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
             soldiers[i][j] = 0;
             if (board[i][j]) {
                 for (int k = 0; k < listsize; k++) {
@@ -111,21 +169,16 @@ void update_board() {
 
 void trench_animation(int i, int j) {
     int center = cell_size / 2;
-    int sradius = cell_size / 7, bradius = cell_size / 6;
-    int type = board[i][j];
-    filledCircleColor(renderer, i + center, j + center, bradius,
-                      colors[type][1]);
-    filledCircleColor(renderer, i + center, j + center, sradius,
-                      colors[type][1]);
-    filledCircleColor(renderer, i + center, j + center, bradius,
-                      colors[type][1]);
+    int bradius = cell_size / 6;
+    Uint32 color = colors[board[i][j]][1] & 0x55ffffff;
+    filledCircleColor(renderer, i + center, j + center, bradius, color);
 }
 
 // ---------------------------- Soldiers -----------------------------
 
 void init_soldiers() {
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
             for (int t = 0; t < 15; t++) {
                 if (board[i][j] > 0) {
                     add_soldier(board[i][j], i, j);
@@ -136,8 +189,8 @@ void init_soldiers() {
 }
 
 void generate_soldiers() {
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
             if (board[i][j] > 1 && soldiers[i][j] < max_soldiers) {
                 add_soldier(board[i][j], i, j);
                 soldiers[i][j]++;
@@ -173,32 +226,104 @@ void move_to_target(int i, int j, int i2, int j2) {
     int delay = 0;
     for (int k = 0; k < listsize; k++) {
         Soldier *sol = &list[k];
-        if (sol->i == i && sol->j == j && !is_moving(k)) {
+        if (sol->owner && sol->i == i && sol->j == j && !is_moving(k)) {
             set_soldier_target(k, i2, j2, delay);
             delay += leave_delay;
         }
     }
 }
 
-void random_move() {
+int is_better(i, j, i1, j1, i2, j2) {
+    // check whether (i1, j1) is better than (i2, j2) for (i, j)
+    int dist1 = abs(i - i1) + abs(j - j1);
+    int dist2 = abs(i - i2) + abs(j - j2);
+    return (dist1 < dist2) || soldiers[i1][j1] < soldiers[i2][j2];
+}
+
+void best_target(int i, int j) {
+    int best_i = 100, best_j = 0;
+    for (int x = 0; x < map_size; x++) {
+        for (int y = 0; y < map_size; y++) {
+            if (soldiers[i][j] > soldiers[x][y] && board[x][y] &&
+                board[x][y] != board[i][j]) {
+                if (is_better(i, j, x, y, best_i, best_j)) {
+                    best_i = x;
+                    best_j = y;
+                }
+            }
+        }
+    }
+    if (best_i < 100) {
+        move_to_target(i, j, best_i, best_j);
+    }
+}
+
+void random_attacker() {
     if (rand() % (rand() % (3 * FPS))) return;
     int i = rand() % map_size;
     int j = rand() % map_size;
-    int i2 = rand() % map_size;
-    int j2 = rand() % map_size;
     if (board[i][j] > 2) {
-        move_to_target(i, j, i2, j2);
+        best_target(i, j);
+    }
+}
+
+void send_help(int x, int y) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            if (board[i][j] == board[x][y] && x != i && y != j) {
+                move_to_target(i, j, x, y);
+                return;
+            }
+        }
+    }
+}
+
+void defend() {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            for (int t = 0; t < listsize; t++) {
+                if (list[t].i == i && list[t].j == j &&
+                    list[t].owner != board[i][j]) {
+                    send_help(i, j);
+                }
+            }
+        }
     }
 }
 
 // ---------------------------- Potions -----------------------------
 
-// void drop_potion() {
-//     do{
-//      int x = rand() % map_size;
-//     int y = rand() % map_size;
-//     } while (board[x][y] )
-// }
+void draw_potion(int i, int j) {
+    SDL_Surface *potion;
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, potion);
+    SDL_Rect dstrect = {i - 10, j - 10, i + 10, j + 10};
+    SDL_RenderCopy(renderer, texture, NULL, &dstrect);
+}
+
+void place_potion() {
+    int x = rand() % map_size;
+    int y = rand() % map_size;
+
+    int checki = 0, checkj = 0;
+    for (int i = 0; i < x; i++) {
+        checki = board[i][y] ? 1 : 0;
+    }
+    for (int i = x; i < map_size; i++) {
+        checki = board[i][y] ? 1 : 0;
+    }
+    for (int j = 0; j < y; j++) {
+        checkj = board[x][j] ? 1 : 0;
+    }
+    for (int j = x; j < map_size; j++) {
+        checkj = board[x][j] ? 1 : 0;
+    }
+
+    if (checki || checkj) {
+        draw_potion(x, y);
+    } else {
+        place_potion();
+    }
+}
 
 // ---------------------------- Main -----------------------------
 
@@ -244,25 +369,21 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // create window and renderer
     SDL_Window *window;
-    SDL_Texture *texture = NULL;
-
-    if (SDL_CreateWindowAndRenderer(window_width, window_width, 0, &window,
-                                    &renderer) < 0) {
+    if (SDL_CreateWindowAndRenderer(window_width, window_width + bar_height, 0,
+                                    &window, &renderer) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "Create window and renderer: %s", SDL_GetError());
         return EXIT_FAILURE;
     }
-
     SDL_SetWindowTitle(window, "state.io");
 
-    // draw map
     set_board(0);
     init_soldiers();
 
-    printf("%d %f\n", listsize, list[0].x);
+    srand(time(0));
 
+    // game loop
     int tik = 0;
     while (1) {
         if (handle_events()) {
@@ -274,19 +395,30 @@ int main() {
             generate_soldiers();
         }
         draw_map();
-        random_move();
+        draw_bar();
+        random_attacker();
         move_soldiers();
+        // defend();
+        // place_potion();
         show_soldiers();
 
         SDL_RenderPresent(renderer);
         SDL_Delay(1000 / FPS);
+
+        // int winner = find_winner();
+        // if (winner) {
+        //     determine_score(winner);
+        //     show_result(winner);
+        //     winner = 0;
+        // }
     }
 
     // cleanup
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
+    SDL_FreeSurface(image);
+    SDL_FreeSurface(potion);
     SDL_Quit();
 
     return EXIT_SUCCESS;
