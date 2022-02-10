@@ -33,7 +33,11 @@ Uint32 colors[][2] = {
 SDL_Color color_black = {0, 0, 0};
 SDL_Color color_white = {255, 255, 255};
 
-// ---------------------------- Handy Functions -----------------------------
+// --------------------------- Local Headers ---------------------------
+
+void draw_bar();
+
+// --------------------------- Handy Functions --------------------------
 
 int get_click(int *x, int *y) {
     SDL_Event event;
@@ -83,31 +87,36 @@ void put_text(int x, int y, char *text, SDL_Color color) {
 // ---------------------------- Score -----------------------------
 
 int find_winner() {
-    bool all_the_same = true;
-    int winner = 0;
+    int count[max_players + 2];
+    for (int i = 0; i < max_players + 2; i++) {
+        count[i] = 0;
+    }
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
-            int owner = board[i][j];
-            if (owner >= our_player) {
-                if (!winner) {
-                    winner = owner;
-                } else {
-                    all_the_same = all_the_same && winner == owner;
-                }
-            }
+            count[board[i][j]]++;
         }
     }
-    return all_the_same ? winner : 0;
+    int max = 2;
+    for (int i = 2; i < max_players + 2; i++) {
+        if (count[i] > count[max]) max = i;
+    }
+    int single_winner = true;
+    for (int i = 3; i < max_players + 2; i++) {
+        single_winner = single_winner && count[i] == 0;
+    }
+    if (count[our_player] == 0 || max == our_player && single_winner) {
+        return max;
+    }
+    return 0;
 }
 
 void determine_score(int winner) {
-    for (int i = 0; i < max_players; i++) {
+    for (int i = 2; i < num_players[current_level] + 2; i++) {
+        if (i != winner) {
+            score[i] = fmax(score[i] - 50, 0);
+        }
     }
-    if (winner == our_player) {
-        score[our_player] += 100;
-    } else {
-        score[our_player] -= 50;
-    }
+    score[winner] += 100;
 }
 
 // ---------------------------- Save & Load -----------------------------
@@ -200,7 +209,7 @@ void load_maps() {
     fclose(file);
 }
 
-// ---------------------------- Init Game -----------------------------
+// -------------------------- Init Game ---------------------------
 
 void set_board(int k) {
     for (int i = 0; i < map_size; i++) {
@@ -246,7 +255,7 @@ void create_random_map() {
     }
 }
 
-// ---------------------------- Sort Scoreboard -----------------------------
+// ------------------------- Sort Scoreboard --------------------------
 
 typedef struct {
     int id;
@@ -269,7 +278,7 @@ void sort(Player *A, int n) {
     }
 }
 
-// ---------------------------- Menu & Scoreboard -----------------------------
+// --------------------------- Menu & Scoreboard -----------------------------
 
 int get_option(char options[][30], int n) {
     boxColor(renderer, 0, 0, window_width, window_height, BG_COLOR);
@@ -316,7 +325,7 @@ char options[][30] = {"Last Saved Game", "Map 1",      "Map 2",      "Map 3",
 
 int show_menu(int back) {
     int result = 0;
-    if (back) strcpy(options[7], "Back");
+    strcpy(options[7], back ? "Back" : "Quit");
     int k = get_option(options, 8);
     if (k == 1) {
         load_game();
@@ -568,6 +577,7 @@ void place_potion() {
 int handle_events() {
     SDL_Event sdlEvent;
     static int x1, x2, y1, y2;
+    static bool clicked = false;
     while (SDL_PollEvent(&sdlEvent)) {
         switch (sdlEvent.type) {
             case SDL_QUIT:
@@ -579,6 +589,7 @@ int handle_events() {
                                window_height + bar_height)) {
                     show_menu(1);
                 }
+                clicked = true;
                 break;
             case SDL_MOUSEBUTTONUP:
                 SDL_GetMouseState(&x2, &y2);
@@ -586,23 +597,20 @@ int handle_events() {
                 int j = floor(x1 / cell_size);
                 int i2 = floor(y2 / cell_size);
                 int j2 = floor(x2 / cell_size);
-                if (board[i][j] == our_player) {
+                if (clicked && board[i][j] == our_player) {
                     move_to_target(i, j, i2, j2);
                 }
+                clicked = false;
                 break;
         }
     }
     return 0;
 }
 
-int init_sdl() {
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        return EXIT_FAILURE;
-    }
-    if (SDL_CreateWindowAndRenderer(window_width, window_height + bar_height, 0,
-                                    &window, &renderer) < 0) {
-        return EXIT_FAILURE;
-    }
+void init_sdl() {
+    SDL_Init(SDL_INIT_EVERYTHING);
+    SDL_CreateWindowAndRenderer(window_width, window_height + bar_height, 0,
+                                &window, &renderer);
     SDL_SetWindowTitle(window, "state.io");
     init_font();
 }

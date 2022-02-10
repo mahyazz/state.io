@@ -40,7 +40,3 @@ TTF_Font *font;
 #define eps 10
 #define speed 2
 #define leave_delay 12
-
-// ---------------------------- Functions -----------------------------
-
-void draw_bar();
