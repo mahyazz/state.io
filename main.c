@@ -15,9 +15,9 @@ int max_players = 5;
 int max_soldiers = 30;
 int board[5][5];
 int soldiers[5][5];
-int score[5] = {0, 0, 0, 0, 0};
 int current_level = 0;
 int our_player = 2;
+int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 
 SDL_Renderer *renderer;
 SDL_Surface *surface;
@@ -102,6 +102,63 @@ void put_text(int x, int y, char *text, SDL_Color color) {
     SDL_RenderCopy(renderer, texture, NULL, &rect);
 }
 
+// ---------------------------- Save & Load -----------------------------
+
+void save() {
+    FILE *file = fopen("game.dat", "w");
+    // save scores
+    for (int i = 0; i < max_players; i++) {
+        fprintf(file, "%d ", score[i + 2]);
+    }
+    fprintf(file, "\n");
+
+    // save board
+    fprintf(file, "%d\n", current_level);
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            fprintf(file, "%d ", board[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+
+    // save soldiers
+    fprintf(file, "%d\n", listsize);
+    for (int i = 0; i < listsize; i++) {
+        Soldier s = list[i];
+        fprintf(file, "%d %.0f %.0f %.2f %.2f %d %d %d", s.owner, s.x, s.y,
+                s.dx, s.dy, s.i, s.j, s.delay);
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+}
+
+void load() {
+    FILE *file = fopen("game.dat", "r");
+    // load scores
+    for (int i = 0; i < max_players; i++) {
+        fscanf(file, "%d ", &score[i + 2]);
+    }
+
+    // load board
+    fscanf(file, "%d", &current_level);
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            fscanf(file, "%d ", &board[i][j]);
+        }
+    }
+
+    // load soldiers
+    fscanf(file, "%d", &listsize);
+    for (int i = 0; i < listsize; i++) {
+        Soldier *s = list + i;
+        fscanf(file, "%d %f %f %f %f %d %d %d", &s->owner, &s->x, &s->y, &s->dx,
+               &s->dy, &s->i, &s->j, &s->delay);
+    }
+
+    fclose(file);
+}
+
 // ---------------------------- Panel -----------------------------
 
 void get_click(int *x, int *y) {
@@ -180,15 +237,19 @@ void show_result(int winner) {
 // ---------------------------- Navigation Bar -----------------------------
 
 void draw_bar() {
+    char str[10];
     hlineColor(renderer, 0, window_width, window_width, 0x88000000);
     boxColor(renderer, 0, window_width - 1, window_width,
              window_width + bar_height - 1, colors[1][1]);
-    char *str1 = "Menu";
-    char *str2 = "Score:";
-    stringColor(renderer, 10, window_width + 13, str1, 0x88000000);
-    stringColor(renderer, window_width - 90, window_width + 13, str2,
+    stringColor(renderer, 10, window_width + 13, "Scoreboard   Replay",
                 0x88000000);
-    char str[10];
+    stringColor(renderer, window_width - 180, window_width + 13,
+                "Level:", 0x88000000);
+    sprintf(str, "%d", current_level + 1);
+    stringColor(renderer, window_width - 130, window_width + 13, str,
+                0x88000000);
+    stringColor(renderer, window_width - 90, window_width + 13,
+                "Score:", 0x88000000);
     sprintf(str, "%d", score[our_player]);
     stringColor(renderer, window_width - 40, window_width + 13, str,
                 0x88000000);
@@ -470,7 +531,8 @@ int main() {
     SDL_SetWindowTitle(window, "state.io");
 
     init_font();
-    init_game(current_level);
+    // init_game(current_level);
+    load();
     srand(time(0));
     int num_maps = sizeof(map) / sizeof(map[0]);
     printf("Number of maps: %d\n", num_maps);
@@ -478,7 +540,7 @@ int main() {
 
     // game loop
     int tik = 0;
-    int event;
+    int event = 0;
     int winner = 0;
 
     while (true) {
@@ -526,6 +588,9 @@ int main() {
         }
     }
 
+    if (confirm("Save game?")) {
+        save();
+    }
     // cleanup
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
