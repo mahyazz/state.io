@@ -15,8 +15,9 @@ int max_players = 5;
 int max_soldiers = 30;
 int board[5][5];
 int soldiers[5][5];
-int score = 0;
+int score[5] = {0, 0, 0, 0, 0};
 int current_level = 0;
+int our_player = 2;
 
 SDL_Renderer *renderer;
 SDL_Surface *surface;
@@ -24,6 +25,10 @@ SDL_Texture *texture;
 SDL_Surface *image;
 SDL_Surface *potion;
 TTF_Font *font;
+
+#define EVENT_QUIT 1
+#define EVENT_RESTART 2
+#define EVENT_SAVE 3
 
 Uint32 colors[][2] = {
     {0xfffaf9f8, 0xfffaf9f8},  // background - off-white
@@ -110,8 +115,12 @@ void get_click(int *x, int *y) {
     }
 }
 
+bool inside_box(int x, int y, int x1, int x2, int y1, int y2) {
+    return (x1 <= x && x <= x2 && y1 <= y && y <= y2);
+}
+
 bool confirm(char *message) {
-    boxColor(renderer, 0, 0, window_width, window_width, 0x66000000);
+    boxColor(renderer, 0, 0, window_width, window_width, 0xff666666);
 
     boxColor(renderer, 150, 200, 450, 400, 0xffcccccc);
     boxColor(renderer, 150, 350, 300, 400, 0xff3845b4);
@@ -124,8 +133,8 @@ bool confirm(char *message) {
     int x, y;
     while (true) {
         get_click(&x, &y);
-        if (150 < x && x < 300 && 350 < y && y < 400) return false;
-        if (300 < x && x < 450 && 350 < y && y < 400) return true;
+        if (inside_box(x, y, 150, 300, 350, 400)) return false;
+        if (inside_box(x, y, 300, 450, 350, 400)) return true;
     }
 }
 
@@ -137,7 +146,7 @@ int find_winner() {
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
             int owner = board[i][j];
-            if (owner >= 2) {
+            if (owner >= our_player) {
                 if (!winner) {
                     winner = owner;
                 } else {
@@ -150,10 +159,10 @@ int find_winner() {
 }
 
 void determine_score(int winner) {
-    if (winner == 2) {
-        score += 100;
+    if (winner == our_player) {
+        score[our_player] += 100;
     } else {
-        score -= 50;
+        score[our_player] -= 50;
     }
 }
 
@@ -180,7 +189,7 @@ void draw_bar() {
     stringColor(renderer, window_width - 90, window_width + 13, str2,
                 0x88000000);
     char str[10];
-    sprintf(str, "%d", score);
+    sprintf(str, "%d", score[our_player]);
     stringColor(renderer, window_width - 40, window_width + 13, str,
                 0x88000000);
 }
@@ -296,7 +305,7 @@ void move_to_target(int i, int j, int i2, int j2) {
     printf("%d:%d -> %d:%d\n", i, j, i2, j2);
     fflush(stdout);
     if (!board[i2][j2]) return;
-    if (board[i][j] < 2) return;
+    if (board[i][j] < our_player) return;
     int delay = 0;
     for (int k = 0; k < listsize; k++) {
         Soldier *sol = &list[k];
@@ -336,7 +345,7 @@ void random_attacker() {
     if (rand() % (rand() % (3 * FPS))) return;
     int i = rand() % map_size;
     int j = rand() % map_size;
-    if (board[i][j] > 2) {
+    if (board[i][j] > our_player) {
         best_target(i, j);
     }
 }
@@ -408,7 +417,7 @@ int handle_events() {
     while (SDL_PollEvent(&sdlEvent)) {
         switch (sdlEvent.type) {
             case SDL_QUIT:
-                return 1;
+                return EVENT_QUIT;
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 SDL_GetMouseState(&x1, &y1);
@@ -426,7 +435,7 @@ int handle_events() {
                 j = floor(x1 / cell_size);
                 int i2 = floor(y2 / cell_size);
                 int j2 = floor(x2 / cell_size);
-                if (board[i][j] == 2) {
+                if (board[i][j] == our_player) {
                     move_to_target(i, j, i2, j2);
                 }
                 break;
@@ -463,15 +472,19 @@ int main() {
     init_font();
     init_game(current_level);
     srand(time(0));
+    int num_maps = sizeof(map) / sizeof(map[0]);
+    printf("Number of maps: %d\n", num_maps);
+    fflush(stdout);
 
     // game loop
     int tik = 0;
-    bool quit = false;
+    int event;
+    int winner = 0;
 
     while (true) {
         while (true) {
-            if (handle_events()) {
-                quit = true;
+            event = handle_events();
+            if (event == EVENT_QUIT) {
                 break;
             }
 
@@ -490,20 +503,26 @@ int main() {
             SDL_RenderPresent(renderer);
             SDL_Delay(1000 / FPS);
 
-            int winner = find_winner();
+            winner = find_winner();
             if (winner) {
-                // determine_score(winner);
+                determine_score(winner);
                 draw_bar();
                 break;
             }
         }
-        if (quit) break;
-        if (confirm("You win! Continue?")) {
-            printf("Confirmed!\n");
-            fflush(stdout);
-            init_game(current_level + 1);
+        if (event == EVENT_QUIT) break;
+        if (winner == our_player) {
+            if (confirm("You win! Continue?")) {
+                init_game((current_level + 1) % num_maps);
+            } else {
+                break;
+            }
         } else {
-            break;
+            if (confirm("You lose! Replay?")) {
+                init_game(current_level);
+            } else {
+                break;
+            }
         }
     }
 
