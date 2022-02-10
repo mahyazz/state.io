@@ -10,8 +10,9 @@
 #define our_player 2
 
 #define EVENT_QUIT 1
-#define EVENT_BACK 2
-#define EVENT_MENU 3
+#define EVENT_TERMINATE 2
+#define EVENT_CONTINUE 3
+#define EVENT_MENU 4
 
 #define BG_COLOR 0xfffaf9f8
 

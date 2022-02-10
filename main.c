@@ -9,10 +9,10 @@
 
 // ---------------------------- Globals -----------------------------
 
+int current_level = 0;
+int num_players[num_maps];
 int board[map_size][map_size];
 int soldiers[map_size][map_size];
-int current_level = 0;
-
 int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
@@ -101,6 +101,8 @@ int find_winner() {
 }
 
 void determine_score(int winner) {
+    for (int i = 0; i < max_players; i++) {
+    }
     if (winner == our_player) {
         score[our_player] += 100;
     } else {
@@ -136,6 +138,7 @@ void save_game() {
 
     // save board
     fprintf(file, "%d\n", current_level);
+    fprintf(file, "%d\n", num_players[current_level]);
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
             fprintf(file, "%d ", board[i][j]);
@@ -164,6 +167,8 @@ void load_game() {
 
     // load board
     fscanf(file, "%d", &current_level);
+    fscanf(file, "%d", &num_players[current_level]);
+
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
             fscanf(file, "%d ", &board[i][j]);
@@ -178,12 +183,14 @@ void load_game() {
                &s->dy, &s->i, &s->j, &s->delay);
     }
 
+    // load players
     fclose(file);
 }
 
 void load_maps() {
     FILE *file = fopen("maps.txt", "r");
     for (int k = 0; k < num_maps; k++) {
+        fscanf(file, "%d ", &num_players[k]);
         for (int i = 0; i < map_size; i++) {
             for (int j = 0; j < map_size; j++) {
                 fscanf(file, "%d ", &map[k][i][j]);
@@ -216,24 +223,26 @@ void init_soldiers() {
 }
 
 void init_game(int level) {
+    current_level = level;
     set_board(level);
     listsize = 0;
     init_soldiers();
 }
 
-void random_map() {
-    int num_players = 2 + rand() % (max_players - 1);
+void create_random_map() {
+    int level = map_size - 1;
+    num_players[level] = 2 + rand() % (max_players - 1);
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
-            int type = rand() % (num_players + 2);
+            int type = rand() % (num_players[level] + 2);
             map[num_maps - 1][i][j] = (type == 0) ? 1 : type;
         }
     }
     for (int k = 0; k < map_size * map_size / 2; k++) {
         int i = rand() % map_size;
         int j = rand() % map_size;
-        if (i % (map_size - 1) && j % (map_size - 1)) continue;
-        map[num_maps - 1][i][j] = 0;
+        if (i % (level) && j % (level)) continue;
+        map[level][i][j] = 0;
     }
 }
 
@@ -313,14 +322,14 @@ int show_menu(int back) {
         load_game();
     } else if (k == 6) {
         current_level = num_maps - 1;
-        random_map();
+        create_random_map();
         init_game(current_level);
 
     } else if (k == 7) {
         show_scoreboard();
         result = show_menu(back);
     } else if (k == 8) {
-        return EVENT_BACK;
+        return EVENT_QUIT;
     } else {
         current_level = k - 2;
         init_game(current_level);
@@ -473,8 +482,8 @@ void best_target(int i, int j) {
     int best_i = 100, best_j = 0;
     for (int x = 0; x < map_size; x++) {
         for (int y = 0; y < map_size; y++) {
-            if (soldiers[i][j] > soldiers[x][y] && board[x][y] &&
-                board[x][y] != board[i][j]) {
+            if (soldiers[i][j] > soldiers[x][y] + abs(i - x) + abs(j - y) &&
+                board[x][y] && board[x][y] != board[i][j]) {
                 if (is_better(i, j, x, y, best_i, best_j)) {
                     best_i = x;
                     best_j = y;
@@ -586,6 +595,28 @@ int handle_events() {
     return 0;
 }
 
+int init_sdl() {
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+        return EXIT_FAILURE;
+    }
+    if (SDL_CreateWindowAndRenderer(window_width, window_height + bar_height, 0,
+                                    &window, &renderer) < 0) {
+        return EXIT_FAILURE;
+    }
+    SDL_SetWindowTitle(window, "state.io");
+    init_font();
+}
+
+void cleanup() {
+    SDL_DestroyWindow(window);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(image);
+    SDL_FreeSurface(potion);
+    TTF_Quit();
+    SDL_Quit();
+}
+
 int main() {
     srand(time(0));
 
@@ -594,40 +625,27 @@ int main() {
     fflush(stdout);
     // scanf("%s", players[0].user);
 
-    // init
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Initialize SDL: %s",
-                     SDL_GetError());
-        return EXIT_FAILURE;
-    }
-
-    if (SDL_CreateWindowAndRenderer(window_width, window_height + bar_height, 0,
-                                    &window, &renderer) < 0) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Create window and renderer: %s", SDL_GetError());
-        return EXIT_FAILURE;
-    }
-    SDL_SetWindowTitle(window, "state.io");
-
-    init_font();
+    init_sdl();
     load_maps();
+    create_random_map();
     load_scores();
 
-    // game loop
     int tik = 0;
     int event = 0;
     int winner = 0;
 
     while (true) {
-        if (show_menu(0) == EVENT_BACK) break;
+        if (event != EVENT_CONTINUE && show_menu(0) == EVENT_QUIT) {
+            event = EVENT_TERMINATE;
+            break;
+        }
+
         while (true) {
             event = handle_events();
             if (event == EVENT_MENU) {
                 show_menu(1);
             }
-            if (event == EVENT_QUIT) {
-                break;
-            }
+            if (event == EVENT_QUIT) break;
 
             update_board();
             if (tik++ % (FPS / 1) == 0) {
@@ -654,32 +672,20 @@ int main() {
         if (event == EVENT_QUIT) break;
         if (winner == our_player) {
             if (confirm("You win! Continue?")) {
-                init_game((current_level + 1) % sizeof(map) / sizeof(map[0]));
-            } else {
-                break;
+                init_game((current_level + 1) % num_maps);
+                event = EVENT_CONTINUE;
             }
-        } else {
-            if (confirm("You lose! Replay?")) {
-                init_game(current_level);
-            } else {
-                break;
-            }
+        } else if (confirm("You lose! Replay?")) {
+            init_game(current_level);
+            event = EVENT_CONTINUE;
         }
     }
 
     save_scores();
-    if (tik && confirm("Save game?")) {
+    if (event != EVENT_TERMINATE && confirm("Save game?")) {
         save_game();
     }
 
-    // cleanup
-    SDL_DestroyWindow(window);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(image);
-    SDL_FreeSurface(potion);
-    TTF_Quit();
-    SDL_Quit();
-
+    cleanup();
     return EXIT_SUCCESS;
 }
