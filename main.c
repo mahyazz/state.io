@@ -18,7 +18,10 @@ int soldiers[5][5];
 int current_level = 0;
 int our_player = 2;
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
+char players[][16] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
+                      "Purple Pal"};
 
+SDL_Window *window;
 SDL_Renderer *renderer;
 SDL_Surface *surface;
 SDL_Texture *texture;
@@ -30,8 +33,10 @@ TTF_Font *font;
 #define EVENT_RESTART 2
 #define EVENT_SAVE 3
 
+#define BG_COLOR 0xfffaf9f8
+
 Uint32 colors[][2] = {
-    {0xfffaf9f8, 0xfffaf9f8},  // background - off-white
+    {BG_COLOR, BG_COLOR},      // background - off-white
     {0xffe6e2de, 0xffbdb5ad},  // free - grey
     {0xffa1dfc0, 0xff90c49f},  // player 2 - green
     {0xfff4e8ad, 0xffecda78},  // player 3 - blue
@@ -72,6 +77,23 @@ int map[][5][5] = {{
                        {1, 1, 1, 3, 0},
                    }};
 
+// ---------------------------- Handy Functions -----------------------------
+
+int get_click(int *x, int *y) {
+    SDL_Event event;
+    while (true) {
+        SDL_PollEvent(&event);
+        if (event.type == SDL_MOUSEBUTTONDOWN) {
+            SDL_GetMouseState(x, y);
+            return 1;
+        }
+    }
+}
+
+bool inside_box(int x, int y, int x1, int x2, int y1, int y2) {
+    return (x1 <= x && x <= x2 && y1 <= y && y <= y2);
+}
+
 // ---------------------------- Font -----------------------------
 
 void init_font() {
@@ -100,6 +122,34 @@ void put_text(int x, int y, char *text, SDL_Color color) {
     rect.w = text_width;
     rect.h = text_height;
     SDL_RenderCopy(renderer, texture, NULL, &rect);
+}
+
+// ---------------------------- Score -----------------------------
+
+int find_winner() {
+    bool all_the_same = true;
+    int winner = 0;
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            int owner = board[i][j];
+            if (owner >= our_player) {
+                if (!winner) {
+                    winner = owner;
+                } else {
+                    all_the_same = all_the_same && winner == owner;
+                }
+            }
+        }
+    }
+    return all_the_same ? winner : 0;
+}
+
+void determine_score(int winner) {
+    if (winner == our_player) {
+        score[our_player] += 100;
+    } else {
+        score[our_player] -= 50;
+    }
 }
 
 // ---------------------------- Save & Load -----------------------------
@@ -159,22 +209,78 @@ void load() {
     fclose(file);
 }
 
-// ---------------------------- Panel -----------------------------
+// ---------------------------- Init Game -----------------------------
 
-void get_click(int *x, int *y) {
-    SDL_Event event;
-    while (true) {
-        SDL_PollEvent(&event);
-        if (event.type == SDL_MOUSEBUTTONDOWN) {
-            SDL_GetMouseState(x, y);
-            return;
+void set_board(int k) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            board[i][j] = map[k][i][j];
         }
     }
 }
 
-bool inside_box(int x, int y, int x1, int x2, int y1, int y2) {
-    return (x1 <= x && x <= x2 && y1 <= y && y <= y2);
+void init_soldiers() {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            for (int t = 0; t < 15; t++) {
+                if (board[i][j] > 0) {
+                    add_soldier(board[i][j], i, j);
+                }
+            }
+        }
+    }
 }
+
+void init_game(int level) {
+    set_board(level);
+    listsize = 0;
+    init_soldiers();
+}
+
+// ---------------------------- Menu & Scoreboard -----------------------------
+
+int get_option(char options[][20], int n) {
+    boxColor(renderer, 0, 0, window_width, window_width, BG_COLOR);
+    int height = 600 / (n + 2);
+    float box_ratio = 3.0 / 4;
+    int x, y;
+    for (int i = 1; i <= n; i++) {
+        boxColor(renderer, 150, height * i, 450, height * (i + box_ratio),
+                 0xffe6e2de);
+        put_text(300, height * (i + 1.0 / 3), options[i - 1], color_black);
+    }
+    SDL_RenderPresent(renderer);
+    while (true) {
+        get_click(&x, &y);
+        if (150 <= x && x <= 450) {
+            int k = floor(y / height);
+            if (1 <= k && k <= n && y <= height * (k + box_ratio)) {
+                return k;
+            }
+        }
+    }
+}
+
+char options[][20] = {"Last Saved Game", "Map 1",      "Map 2", "Map 3",
+                      "Map 4",           "Scoreboard", "Quit"};
+void show_scoreboard() {}
+
+int show_menu() {
+    int k = get_option(options, 7);
+    if (k == 1)
+        load();
+    else if (k == 6)
+        show_scoreboard();
+    else if (k == 7)
+        return EVENT_QUIT;
+    else {
+        current_level = k - 2;
+        init_game(current_level);
+    }
+    return 0;
+}
+
+// ---------------------------- Panel -----------------------------
 
 bool confirm(char *message) {
     boxColor(renderer, 0, 0, window_width, window_width, 0xff666666);
@@ -193,45 +299,6 @@ bool confirm(char *message) {
         if (inside_box(x, y, 150, 300, 350, 400)) return false;
         if (inside_box(x, y, 300, 450, 350, 400)) return true;
     }
-}
-
-// ---------------------------- Score -----------------------------
-
-int find_winner() {
-    bool all_the_same = true;
-    int winner = 0;
-    for (int i = 0; i < map_size; i++) {
-        for (int j = 0; j < map_size; j++) {
-            int owner = board[i][j];
-            if (owner >= our_player) {
-                if (!winner) {
-                    winner = owner;
-                } else {
-                    all_the_same = all_the_same && winner == owner;
-                }
-            }
-        }
-    }
-    return all_the_same ? winner : 0;
-}
-
-void determine_score(int winner) {
-    if (winner == our_player) {
-        score[our_player] += 100;
-    } else {
-        score[our_player] -= 50;
-    }
-}
-
-void show_result(int winner) {
-    if (winner == 2) {
-        image = SDL_LoadBMP("winimage.bmp");
-    } else {
-        image = SDL_LoadBMP("loseimage.bmp");
-    }
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
-    SDL_Rect dstrect = {0, 0, window_width, window_width};
-    SDL_RenderCopy(renderer, texture, NULL, &dstrect);
 }
 
 // ---------------------------- Navigation Bar -----------------------------
@@ -256,14 +323,6 @@ void draw_bar() {
 }
 
 // ---------------------------- Map -----------------------------
-
-void set_board(int k) {
-    for (int i = 0; i < map_size; i++) {
-        for (int j = 0; j < map_size; j++) {
-            board[i][j] = map[k][i][j];
-        }
-    }
-}
 
 void fill_cell(int i, int j, Uint32 color, Uint32 ccolor) {
     int x = j * cell_size;
@@ -311,26 +370,7 @@ void update_board() {
     }
 }
 
-void trench_animation(int i, int j) {
-    int center = cell_size / 2;
-    int bradius = cell_size / 6;
-    Uint32 color = colors[board[i][j]][1] & 0x55ffffff;
-    filledCircleColor(renderer, i + center, j + center, bradius, color);
-}
-
 // ---------------------------- Soldiers -----------------------------
-
-void init_soldiers() {
-    for (int i = 0; i < map_size; i++) {
-        for (int j = 0; j < map_size; j++) {
-            for (int t = 0; t < 15; t++) {
-                if (board[i][j] > 0) {
-                    add_soldier(board[i][j], i, j);
-                }
-            }
-        }
-    }
-}
 
 void generate_soldiers() {
     for (int i = 0; i < map_size; i++) {
@@ -484,6 +524,7 @@ int handle_events() {
                 SDL_GetMouseState(&x1, &y1);
                 int i = floor(y1 / cell_size);
                 int j = floor(x1 / cell_size);
+
                 printf("soldiers[%d][%d]: %d\n", i, j, soldiers[i][j]);
                 // printf("%d:%d\n", x1, y1);
                 fflush(stdout);
@@ -505,14 +546,11 @@ int handle_events() {
     return 0;
 }
 
-void init_game(int level) {
-    set_board(level);
-    listsize = 0;
-    init_soldiers();
-}
-
 int main() {
-    // gfxPrimitivesSetFont(Font18, 18, 18);
+    // username
+    printf("Please enter your username (max 20 characters):\n");
+    fflush(stdout);
+    // scanf("%s", players[0].user);
 
     // init
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -521,7 +559,6 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    SDL_Window *window;
     if (SDL_CreateWindowAndRenderer(window_width, window_width + bar_height, 0,
                                     &window, &renderer) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -531,12 +568,8 @@ int main() {
     SDL_SetWindowTitle(window, "state.io");
 
     init_font();
-    // init_game(current_level);
-    load();
+    // init_players();
     srand(time(0));
-    int num_maps = sizeof(map) / sizeof(map[0]);
-    printf("Number of maps: %d\n", num_maps);
-    fflush(stdout);
 
     // game loop
     int tik = 0;
@@ -544,6 +577,7 @@ int main() {
     int winner = 0;
 
     while (true) {
+        if (show_menu() == EVENT_QUIT) break;
         while (true) {
             event = handle_events();
             if (event == EVENT_QUIT) {
@@ -575,7 +609,7 @@ int main() {
         if (event == EVENT_QUIT) break;
         if (winner == our_player) {
             if (confirm("You win! Continue?")) {
-                init_game((current_level + 1) % num_maps);
+                init_game((current_level + 1) % sizeof(map) / sizeof(map[0]));
             } else {
                 break;
             }
@@ -591,6 +625,7 @@ int main() {
     if (confirm("Save game?")) {
         save();
     }
+
     // cleanup
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
