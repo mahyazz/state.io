@@ -16,12 +16,14 @@ int max_soldiers = 30;
 int board[5][5];
 int soldiers[5][5];
 int score = 0;
+int current_level = 0;
 
 SDL_Renderer *renderer;
 SDL_Surface *surface;
 SDL_Texture *texture;
 SDL_Surface *image;
 SDL_Surface *potion;
+TTF_Font *font;
 
 Uint32 colors[][2] = {
     {0xfffaf9f8, 0xfffaf9f8},  // background - off-white
@@ -33,27 +35,99 @@ Uint32 colors[][2] = {
     {0xffe5b7d2, 0xffe09ec1},  // potion - purple
 };
 
-int map[3][5][5] = {{
-                        {0, 0, 2, 3, 0},
-                        {0, 1, 1, 1, 0},
-                        {4, 1, 1, 1, 0},
-                        {3, 1, 1, 0, 0},
-                        {0, 2, 1, 4, 0},
-                    },
-                    {
-                        {0, 2, 1, 1, 0},
-                        {0, 1, 1, 0, 0},
-                        {1, 1, 3, 0, 1},
-                        {4, 1, 1, 1, 5},
-                        {1, 1, 0, 1, 0},
-                    },
-                    {
-                        {0, 2, 1, 1, 1},
-                        {0, 0, 1, 1, 1},
-                        {0, 0, 0, 0, 0},
-                        {1, 1, 1, 0, 0},
-                        {1, 1, 1, 3, 0},
-                    }};
+SDL_Color color_black = {0, 0, 0};
+SDL_Color color_white = {255, 255, 255};
+
+int map[][5][5] = {{
+                       {0, 0, 2, 0, 0},
+                       {0, 0, 2, 0, 0},
+                       {0, 0, 1, 3, 0},
+                       {0, 0, 2, 0, 0},
+                       {0, 0, 2, 0, 0},
+                   },
+                   {
+                       {0, 0, 2, 3, 0},
+                       {0, 1, 1, 1, 0},
+                       {4, 1, 1, 1, 0},
+                       {3, 1, 1, 0, 0},
+                       {0, 2, 1, 4, 0},
+                   },
+                   {
+                       {0, 2, 1, 1, 0},
+                       {0, 1, 1, 0, 0},
+                       {1, 1, 3, 0, 1},
+                       {4, 1, 1, 1, 5},
+                       {1, 1, 0, 1, 0},
+                   },
+                   {
+                       {0, 2, 1, 1, 1},
+                       {0, 0, 1, 1, 1},
+                       {0, 0, 0, 0, 0},
+                       {1, 1, 1, 0, 0},
+                       {1, 1, 1, 3, 0},
+                   }};
+
+// ---------------------------- Font -----------------------------
+
+void init_font() {
+    TTF_Init();
+    font = TTF_OpenFont("FreeSans.ttf", 24);
+    if (font == NULL) {
+        fprintf(stderr, "error: font not found\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void put_text(int x, int y, char *text, SDL_Color color) {
+    int text_width;
+    int text_height;
+    SDL_Rect rect;
+    // SDL_Color textColor = {0, 0, 0, 200};
+
+    surface = TTF_RenderText_Blended(font, text, color);
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    text_width = surface->w;
+    text_height = surface->h;
+    SDL_FreeSurface(surface);
+
+    rect.x = x - text_width / 2;
+    rect.y = y - text_height / 2;
+    rect.w = text_width;
+    rect.h = text_height;
+    SDL_RenderCopy(renderer, texture, NULL, &rect);
+}
+
+// ---------------------------- Panel -----------------------------
+
+void get_click(int *x, int *y) {
+    SDL_Event event;
+    while (true) {
+        SDL_PollEvent(&event);
+        if (event.type == SDL_MOUSEBUTTONDOWN) {
+            SDL_GetMouseState(x, y);
+            return;
+        }
+    }
+}
+
+bool confirm(char *message) {
+    boxColor(renderer, 0, 0, window_width, window_width, 0x66000000);
+
+    boxColor(renderer, 150, 200, 450, 400, 0xffcccccc);
+    boxColor(renderer, 150, 350, 300, 400, 0xff3845b4);
+    boxColor(renderer, 300, 350, 450, 400, 0xff7db739);
+
+    put_text(300, 260, message, color_black);
+    put_text(225, 375, "No", color_white);
+    put_text(375, 375, "Yes", color_white);
+    SDL_RenderPresent(renderer);
+    int x, y;
+    while (true) {
+        get_click(&x, &y);
+        if (150 < x && x < 300 && 350 < y && y < 400) return false;
+        if (300 < x && x < 450 && 350 < y && y < 400) return true;
+    }
+}
 
 // ---------------------------- Score -----------------------------
 
@@ -361,7 +435,15 @@ int handle_events() {
     return 0;
 }
 
+void init_game(int level) {
+    set_board(level);
+    listsize = 0;
+    init_soldiers();
+}
+
 int main() {
+    // gfxPrimitivesSetFont(Font18, 18, 18);
+
     // init
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Initialize SDL: %s",
@@ -378,39 +460,51 @@ int main() {
     }
     SDL_SetWindowTitle(window, "state.io");
 
-    set_board(0);
-    init_soldiers();
-
+    init_font();
+    init_game(current_level);
     srand(time(0));
 
     // game loop
     int tik = 0;
-    while (1) {
-        if (handle_events()) {
+    bool quit = false;
+
+    while (true) {
+        while (true) {
+            if (handle_events()) {
+                quit = true;
+                break;
+            }
+
+            update_board();
+            if (tik++ % (FPS / 1) == 0) {
+                generate_soldiers();
+            }
+            draw_map();
+            draw_bar();
+            random_attacker();
+            move_soldiers();
+            // defend();
+            // place_potion();
+            show_soldiers();
+
+            SDL_RenderPresent(renderer);
+            SDL_Delay(1000 / FPS);
+
+            int winner = find_winner();
+            if (winner) {
+                // determine_score(winner);
+                draw_bar();
+                break;
+            }
+        }
+        if (quit) break;
+        if (confirm("You win! Continue?")) {
+            printf("Confirmed!\n");
+            fflush(stdout);
+            init_game(current_level + 1);
+        } else {
             break;
         }
-
-        update_board();
-        if (tik++ % (FPS / 1) == 0) {
-            generate_soldiers();
-        }
-        draw_map();
-        draw_bar();
-        random_attacker();
-        move_soldiers();
-        // defend();
-        // place_potion();
-        show_soldiers();
-
-        SDL_RenderPresent(renderer);
-        SDL_Delay(1000 / FPS);
-
-        // int winner = find_winner();
-        // if (winner) {
-        //     determine_score(winner);
-        //     show_result(winner);
-        //     winner = 0;
-        // }
     }
 
     // cleanup
@@ -419,6 +513,7 @@ int main() {
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(image);
     SDL_FreeSurface(potion);
+    TTF_Quit();
     SDL_Quit();
 
     return EXIT_SUCCESS;
