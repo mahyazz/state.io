@@ -30,8 +30,8 @@ SDL_Surface *potion;
 TTF_Font *font;
 
 #define EVENT_QUIT 1
-#define EVENT_RESTART 2
-#define EVENT_SAVE 3
+#define EVENT_BACK 2
+#define EVENT_MENU 3
 
 #define BG_COLOR 0xfffaf9f8
 
@@ -272,6 +272,8 @@ int get_option(char options[][30], int n) {
                  0xffe6e2de);
         put_text(300, height * (i + 1.0 / 3), options[i - 1], color_black);
     }
+    void draw_bar();
+    draw_bar();
     SDL_RenderPresent(renderer);
     while (true) {
         get_click(&x, &y);
@@ -291,27 +293,30 @@ void show_scoreboard() {
         scores[i].score = score[i + 2];
     }
     sort(scores, max_players);
-    char options[max_players + 1][30];
+    char options[max_players + 2][30];
+    strcpy(options[0], "SCOREBOARD");
     for (int i = 0; i < max_players; i++) {
-        sprintf(options[i], "%s: %d", players[scores[i].id], scores[i].score);
+        sprintf(options[i + 1], "%s: %d", players[scores[i].id],
+                scores[i].score);
     }
-    strcpy(options[max_players], "Back");
-    get_option(options, max_players + 1);
+    strcpy(options[max_players + 1], "Back");
+    get_option(options, max_players + 2);
 }
 
 char options[][30] = {"Last Saved Game", "Map 1",      "Map 2", "Map 3",
                       "Map 4",           "Scoreboard", "Quit"};
 
-int show_menu() {
+int show_menu(int back) {
     int result = 0;
+    if (back) strcpy(options[6], "Back");
     int k = get_option(options, 7);
     if (k == 1)
         load();
     else if (k == 6) {
         show_scoreboard();
-        result = show_menu();
+        result = show_menu(back);
     } else if (k == 7)
-        return EVENT_QUIT;
+        return EVENT_BACK;
     else {
         current_level = k - 2;
         init_game(current_level);
@@ -348,10 +353,10 @@ void draw_bar() {
     hlineColor(renderer, 0, window_width, window_width, gray);
     boxColor(renderer, 0, window_width - 1, window_width,
              window_width + bar_height - 1, colors[1][1]);
-    stringColor(renderer, 10, window_width + 12, "Scoreboard   Replay", gray);
+    stringColor(renderer, 12, window_width + 12, "Menu", gray);
 
     sprintf(str, "Level: %d   Score: %d", current_level + 1, score[our_player]);
-    stringColor(renderer, window_width - strlen(str) * 8 - 10,
+    stringColor(renderer, window_width - strlen(str) * 8 - 12,
                 window_width + 12, str, gray);
 }
 
@@ -545,7 +550,6 @@ void place_potion() {
 // ---------------------------- Main -----------------------------
 
 int handle_events() {
-    // return 1 if must exit
     SDL_Event sdlEvent;
     static int x1, x2, y1, y2;
     while (SDL_PollEvent(&sdlEvent)) {
@@ -555,19 +559,15 @@ int handle_events() {
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 SDL_GetMouseState(&x1, &y1);
-                int i = floor(y1 / cell_size);
-                int j = floor(x1 / cell_size);
-
-                printf("soldiers[%d][%d]: %d\n", i, j, soldiers[i][j]);
-                // printf("%d:%d\n", x1, y1);
-                fflush(stdout);
+                if (inside_box(x1, y1, 0, window_width, 100,
+                               window_width + bar_height)) {
+                    show_menu(1);
+                }
                 break;
             case SDL_MOUSEBUTTONUP:
                 SDL_GetMouseState(&x2, &y2);
-                // printf("%d:%d\n", x2, y2);
-                // fflush(stdout);
-                i = floor(y1 / cell_size);
-                j = floor(x1 / cell_size);
+                int i = floor(y1 / cell_size);
+                int j = floor(x1 / cell_size);
                 int i2 = floor(y2 / cell_size);
                 int j2 = floor(x2 / cell_size);
                 if (board[i][j] == our_player) {
@@ -610,10 +610,12 @@ int main() {
     int winner = 0;
 
     while (true) {
-        draw_bar();
-        if (show_menu() == EVENT_QUIT) break;
+        if (show_menu(0) == EVENT_BACK) break;
         while (true) {
             event = handle_events();
+            if (event == EVENT_MENU) {
+                show_menu(1);
+            }
             if (event == EVENT_QUIT) {
                 break;
             }
@@ -656,7 +658,7 @@ int main() {
         }
     }
 
-    if (confirm("Save game?")) {
+    if (tik && confirm("Save game?")) {
         save();
     }
 
