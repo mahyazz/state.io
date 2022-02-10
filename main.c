@@ -237,9 +237,32 @@ void init_game(int level) {
     init_soldiers();
 }
 
+// ---------------------------- Sort Scoreboard -----------------------------
+
+typedef struct {
+    int id;
+    int score;
+} Player;
+
+void swap(Player *p, Player *q) {
+    Player temp = *p;
+    *p = *q;
+    *q = temp;
+}
+
+void sort(Player *A, int n) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = n - 1; j > i; j--) {
+            if (A[j].score > A[j - 1].score) {
+                swap(A + j, A + j - 1);
+            }
+        }
+    }
+}
+
 // ---------------------------- Menu & Scoreboard -----------------------------
 
-int get_option(char options[][20], int n) {
+int get_option(char options[][30], int n) {
     boxColor(renderer, 0, 0, window_width, window_width, BG_COLOR);
     int height = 600 / (n + 2);
     float box_ratio = 3.0 / 4;
@@ -261,23 +284,39 @@ int get_option(char options[][20], int n) {
     }
 }
 
-char options[][20] = {"Last Saved Game", "Map 1",      "Map 2", "Map 3",
+void show_scoreboard() {
+    Player scores[max_players];
+    for (int i = 0; i < max_players; i++) {
+        scores[i].id = i;
+        scores[i].score = score[i + 2];
+    }
+    sort(scores, max_players);
+    char options[max_players + 1][30];
+    for (int i = 0; i < max_players; i++) {
+        sprintf(options[i], "%s: %d", players[scores[i].id], scores[i].score);
+    }
+    strcpy(options[max_players], "Back");
+    get_option(options, max_players + 1);
+}
+
+char options[][30] = {"Last Saved Game", "Map 1",      "Map 2", "Map 3",
                       "Map 4",           "Scoreboard", "Quit"};
-void show_scoreboard() {}
 
 int show_menu() {
+    int result = 0;
     int k = get_option(options, 7);
     if (k == 1)
         load();
-    else if (k == 6)
+    else if (k == 6) {
         show_scoreboard();
-    else if (k == 7)
+        result = show_menu();
+    } else if (k == 7)
         return EVENT_QUIT;
     else {
         current_level = k - 2;
         init_game(current_level);
     }
-    return 0;
+    return result;
 }
 
 // ---------------------------- Panel -----------------------------
@@ -304,22 +343,16 @@ bool confirm(char *message) {
 // ---------------------------- Navigation Bar -----------------------------
 
 void draw_bar() {
-    char str[10];
-    hlineColor(renderer, 0, window_width, window_width, 0x88000000);
+    char str[100];
+    int gray = 0x88000000;
+    hlineColor(renderer, 0, window_width, window_width, gray);
     boxColor(renderer, 0, window_width - 1, window_width,
              window_width + bar_height - 1, colors[1][1]);
-    stringColor(renderer, 10, window_width + 13, "Scoreboard   Replay",
-                0x88000000);
-    stringColor(renderer, window_width - 180, window_width + 13,
-                "Level:", 0x88000000);
-    sprintf(str, "%d", current_level + 1);
-    stringColor(renderer, window_width - 130, window_width + 13, str,
-                0x88000000);
-    stringColor(renderer, window_width - 90, window_width + 13,
-                "Score:", 0x88000000);
-    sprintf(str, "%d", score[our_player]);
-    stringColor(renderer, window_width - 40, window_width + 13, str,
-                0x88000000);
+    stringColor(renderer, 10, window_width + 12, "Scoreboard   Replay", gray);
+
+    sprintf(str, "Level: %d   Score: %d", current_level + 1, score[our_player]);
+    stringColor(renderer, window_width - strlen(str) * 8 - 10,
+                window_width + 12, str, gray);
 }
 
 // ---------------------------- Map -----------------------------
@@ -577,6 +610,7 @@ int main() {
     int winner = 0;
 
     while (true) {
+        draw_bar();
         if (show_menu() == EVENT_QUIT) break;
         while (true) {
             event = handle_events();
