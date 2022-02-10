@@ -1,23 +1,6 @@
-typedef struct {
-    int owner;
-    float x;
-    float y;
-    float dx;
-    float dy;
-    int i;
-    int j;
-    int delay;
-} Soldier;
+#include "soldiers.h"
 
-const int steps = 100;
-int cell_size = 120;
-int sol_radius = 7;
-int eps = 10;
-int speed = 2;
-int leave_delay = 12;
-const int FPS = 90;
-
-// ---------------------------- Soldier List -----------------------------
+#include "game.h"
 
 Soldier list[2500];
 int listsize = 0;
@@ -76,19 +59,13 @@ void set_soldier_target(int k, int i, int j, int delay) {
 
 void manage_conflict(int k) {
     Soldier *sol = &list[k];
-    for (int k2 = 0; k2 < listsize; k2++) {
+    for (int k2 = listsize - 1; k2 >= 0; k2--) {
         Soldier *sol2 = &list[k2];
         if ((sol->owner != sol2->owner) && sol2->owner &&
             (is_moving(k2) || (sol->i == sol2->i && sol->j == sol2->j)) &&
             fabs(sol->x - sol2->x) < eps && fabs(sol->y - sol2->y) < eps) {
             remove_soldier(k);
             remove_soldier(k2);
-            // if (list[k].dx == 0 || list[k].dy == 0) {
-            //     trench_animation(list[k].dx, list[k].dy);
-            // }
-            // if (list[k2].dx == 0 || list[k2].dy == 0) {
-            //     trench_animation(list[k2].dx, list[k2].dy);
-            // }
             break;
         }
     }

@@ -1,39 +1,24 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
-#include <SDL2/SDL_ttf.h>
+
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "soldier_list.c"
+#include "game.h"
+#include "soldiers.h"
 
-int bar_height = 30;
-int map_size = 5;
-int window_width = 600 + 1;
-int max_players = 5;
-int max_soldiers = 30;
-int board[5][5];
-int soldiers[5][5];
+// ---------------------------- Globals -----------------------------
+
+int board[map_size][map_size];
+int soldiers[map_size][map_size];
 int current_level = 0;
-int our_player = 2;
+
+int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
-char players[][16] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
-                      "Purple Pal"};
+const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
+                            "Purple Pal"};
 
-SDL_Window *window;
-SDL_Renderer *renderer;
-SDL_Surface *surface;
-SDL_Texture *texture;
-SDL_Surface *image;
-SDL_Surface *potion;
-TTF_Font *font;
-
-#define EVENT_QUIT 1
-#define EVENT_BACK 2
-#define EVENT_MENU 3
-
-#define BG_COLOR 0xfffaf9f8
+// ---------------------------- Colors -----------------------------
 
 Uint32 colors[][2] = {
     {BG_COLOR, BG_COLOR},      // background - off-white
@@ -47,9 +32,6 @@ Uint32 colors[][2] = {
 
 SDL_Color color_black = {0, 0, 0};
 SDL_Color color_white = {255, 255, 255};
-
-#define num_maps 5
-int map[num_maps][5][5];
 
 // ---------------------------- Handy Functions -----------------------------
 
@@ -281,7 +263,7 @@ void sort(Player *A, int n) {
 // ---------------------------- Menu & Scoreboard -----------------------------
 
 int get_option(char options[][30], int n) {
-    boxColor(renderer, 0, 0, window_width, window_width, BG_COLOR);
+    boxColor(renderer, 0, 0, window_width, window_height, BG_COLOR);
     int height = 600 / (n + 2);
     float box_ratio = 3.0 / 4;
     int x, y;
@@ -290,7 +272,6 @@ int get_option(char options[][30], int n) {
                  0xffe6e2de);
         put_text(300, height * (i + 1.0 / 3), options[i - 1], color_black);
     }
-    void draw_bar();
     draw_bar();
     SDL_RenderPresent(renderer);
     while (true) {
@@ -350,7 +331,7 @@ int show_menu(int back) {
 // ---------------------------- Panel -----------------------------
 
 bool confirm(char *message) {
-    boxColor(renderer, 0, 0, window_width, window_width, 0xff666666);
+    boxColor(renderer, 0, 0, window_width, window_height, 0xff666666);
 
     boxColor(renderer, 150, 200, 450, 400, 0xffcccccc);
     boxColor(renderer, 150, 350, 300, 400, 0xff3845b4);
@@ -360,6 +341,7 @@ bool confirm(char *message) {
     put_text(225, 375, "No", color_white);
     put_text(375, 375, "Yes", color_white);
 
+    draw_bar();
     SDL_RenderPresent(renderer);
 
     int x, y;
@@ -375,14 +357,14 @@ bool confirm(char *message) {
 void draw_bar() {
     char str[100];
     int gray = 0x88000000;
-    hlineColor(renderer, 0, window_width, window_width, gray);
-    boxColor(renderer, 0, window_width - 1, window_width,
-             window_width + bar_height - 1, colors[1][1]);
-    stringColor(renderer, 12, window_width + 12, "Menu", gray);
+    hlineColor(renderer, 0, window_width, window_height, gray);
+    boxColor(renderer, 0, window_width - 1, window_height,
+             window_height + bar_height - 1, colors[1][1]);
+    stringColor(renderer, 12, window_height + 12, "Menu", gray);
 
     sprintf(str, "Level: %d   Score: %d", current_level + 1, score[our_player]);
     stringColor(renderer, window_width - strlen(str) * 8 - 12,
-                window_width + 12, str, gray);
+                window_height + 12, str, gray);
 }
 
 // ---------------------------- Map -----------------------------
@@ -514,29 +496,29 @@ void random_attacker() {
     }
 }
 
-void send_help(int x, int y) {
-    for (int i = 0; i < map_size; i++) {
-        for (int j = 0; j < map_size; j++) {
-            if (board[i][j] == board[x][y] && x != i && y != j) {
-                move_to_target(i, j, x, y);
-                return;
-            }
-        }
-    }
-}
+// void send_help(int x, int y) {
+//     for (int i = 0; i < map_size; i++) {
+//         for (int j = 0; j < map_size; j++) {
+//             if (board[i][j] == board[x][y] && x != i && y != j) {
+//                 move_to_target(i, j, x, y);
+//                 return;
+//             }
+//         }
+//     }
+// }
 
-void defend() {
-    for (int i = 0; i < map_size; i++) {
-        for (int j = 0; j < map_size; j++) {
-            for (int t = 0; t < listsize; t++) {
-                if (list[t].i == i && list[t].j == j &&
-                    list[t].owner != board[i][j]) {
-                    send_help(i, j);
-                }
-            }
-        }
-    }
-}
+// void defend() {
+//     for (int i = 0; i < map_size; i++) {
+//         for (int j = 0; j < map_size; j++) {
+//             for (int t = 0; t < listsize; t++) {
+//                 if (list[t].i == i && list[t].j == j &&
+//                     list[t].owner != board[i][j]) {
+//                     send_help(i, j);
+//                 }
+//             }
+//         }
+//     }
+// }
 
 // ---------------------------- Potions -----------------------------
 
@@ -585,7 +567,7 @@ int handle_events() {
             case SDL_MOUSEBUTTONDOWN:
                 SDL_GetMouseState(&x1, &y1);
                 if (inside_box(x1, y1, 0, 100, window_width,
-                               window_width + bar_height)) {
+                               window_height + bar_height)) {
                     show_menu(1);
                 }
                 break;
@@ -619,7 +601,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    if (SDL_CreateWindowAndRenderer(window_width, window_width + bar_height, 0,
+    if (SDL_CreateWindowAndRenderer(window_width, window_height + bar_height, 0,
                                     &window, &renderer) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "Create window and renderer: %s", SDL_GetError());
