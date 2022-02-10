@@ -42,13 +42,13 @@ Uint32 colors[][2] = {
     {0xfff4e8ad, 0xffecda78},  // player 3 - blue
     {0xffc6c1ff, 0xffa39bfe},  // player 4 - pink
     {0xff99eeff, 0xff4ce1ff},  // player 5 - yellow
-    {0xffe5b7d2, 0xffe09ec1},  // potion - purple
+    {0xffe5b7d2, 0xffe09ec1},  // player 6 - purple
 };
 
 SDL_Color color_black = {0, 0, 0};
 SDL_Color color_white = {255, 255, 255};
 
-#define num_maps 4
+#define num_maps 5
 int map[num_maps][5][5];
 
 // ---------------------------- Handy Functions -----------------------------
@@ -239,8 +239,23 @@ void init_game(int level) {
     init_soldiers();
 }
 
-// ---------------------------- Sort Scoreboard
-// -----------------------------
+void random_map() {
+    int num_players = 2 + rand() % (max_players - 1);
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            int type = rand() % (num_players + 2);
+            map[num_maps - 1][i][j] = (type == 0) ? 1 : type;
+        }
+    }
+    for (int k = 0; k < map_size * map_size / 2; k++) {
+        int i = rand() % map_size;
+        int j = rand() % map_size;
+        if (i % (map_size - 1) && j % (map_size - 1)) continue;
+        map[num_maps - 1][i][j] = 0;
+    }
+}
+
+// ---------------------------- Sort Scoreboard -----------------------------
 
 typedef struct {
     int id;
@@ -263,8 +278,7 @@ void sort(Player *A, int n) {
     }
 }
 
-// ---------------------------- Menu & Scoreboard
-// -----------------------------
+// ---------------------------- Menu & Scoreboard -----------------------------
 
 int get_option(char options[][30], int n) {
     boxColor(renderer, 0, 0, window_width, window_width, BG_COLOR);
@@ -307,21 +321,26 @@ void show_scoreboard() {
     get_option(options, max_players + 2);
 }
 
-char options[][30] = {"Last Saved Game", "Map 1",      "Map 2", "Map 3",
-                      "Map 4",           "Scoreboard", "Quit"};
+char options[][30] = {"Last Saved Game", "Map 1",      "Map 2",      "Map 3",
+                      "Map 4",           "Random Map", "Scoreboard", "Quit"};
 
 int show_menu(int back) {
     int result = 0;
-    if (back) strcpy(options[6], "Back");
-    int k = get_option(options, 7);
-    if (k == 1)
+    if (back) strcpy(options[7], "Back");
+    int k = get_option(options, 8);
+    if (k == 1) {
         load_game();
-    else if (k == 6) {
+    } else if (k == 6) {
+        current_level = num_maps - 1;
+        random_map();
+        init_game(current_level);
+
+    } else if (k == 7) {
         show_scoreboard();
         result = show_menu(back);
-    } else if (k == 7)
+    } else if (k == 8) {
         return EVENT_BACK;
-    else {
+    } else {
         current_level = k - 2;
         init_game(current_level);
     }
@@ -340,7 +359,9 @@ bool confirm(char *message) {
     put_text(300, 260, message, color_black);
     put_text(225, 375, "No", color_white);
     put_text(375, 375, "Yes", color_white);
+
     SDL_RenderPresent(renderer);
+
     int x, y;
     while (true) {
         get_click(&x, &y);
@@ -584,6 +605,8 @@ int handle_events() {
 }
 
 int main() {
+    srand(time(0));
+
     // username
     printf("Please enter your username (max 20 characters):\n");
     fflush(stdout);
@@ -605,7 +628,6 @@ int main() {
     SDL_SetWindowTitle(window, "state.io");
 
     init_font();
-    srand(time(0));
     load_maps();
     load_scores();
 
