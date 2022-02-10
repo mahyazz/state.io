@@ -48,34 +48,8 @@ Uint32 colors[][2] = {
 SDL_Color color_black = {0, 0, 0};
 SDL_Color color_white = {255, 255, 255};
 
-int map[][5][5] = {{
-                       {0, 0, 2, 0, 0},
-                       {0, 0, 2, 0, 0},
-                       {0, 0, 1, 3, 0},
-                       {0, 0, 2, 0, 0},
-                       {0, 0, 2, 0, 0},
-                   },
-                   {
-                       {0, 0, 2, 3, 0},
-                       {0, 1, 1, 1, 0},
-                       {4, 1, 1, 1, 0},
-                       {3, 1, 1, 0, 0},
-                       {0, 2, 1, 4, 0},
-                   },
-                   {
-                       {0, 2, 1, 1, 0},
-                       {0, 1, 1, 0, 0},
-                       {1, 1, 3, 0, 1},
-                       {4, 1, 1, 1, 5},
-                       {1, 1, 0, 1, 0},
-                   },
-                   {
-                       {0, 2, 1, 1, 1},
-                       {0, 0, 1, 1, 1},
-                       {0, 0, 0, 0, 0},
-                       {1, 1, 1, 0, 0},
-                       {1, 1, 1, 3, 0},
-                   }};
+#define num_maps 4
+int map[num_maps][5][5];
 
 // ---------------------------- Handy Functions -----------------------------
 
@@ -154,7 +128,23 @@ void determine_score(int winner) {
 
 // ---------------------------- Save & Load -----------------------------
 
-void save() {
+void save_scores() {
+    FILE *file = fopen("scores.txt", "w");
+    for (int i = 0; i < max_players; i++) {
+        fprintf(file, "%d \n", score[i + 2]);
+    }
+    fclose(file);
+}
+
+void load_scores() {
+    FILE *file = fopen("scores.txt", "r");
+    for (int i = 0; i < max_players; i++) {
+        fscanf(file, "%d ", &score[i + 2]);
+    }
+    fclose(file);
+}
+
+void save_game() {
     FILE *file = fopen("game.dat", "w");
     // save scores
     for (int i = 0; i < max_players; i++) {
@@ -183,7 +173,7 @@ void save() {
     fclose(file);
 }
 
-void load() {
+void load_game() {
     FILE *file = fopen("game.dat", "r");
     // load scores
     for (int i = 0; i < max_players; i++) {
@@ -206,6 +196,18 @@ void load() {
                &s->dy, &s->i, &s->j, &s->delay);
     }
 
+    fclose(file);
+}
+
+void load_maps() {
+    FILE *file = fopen("maps.txt", "r");
+    for (int k = 0; k < num_maps; k++) {
+        for (int i = 0; i < map_size; i++) {
+            for (int j = 0; j < map_size; j++) {
+                fscanf(file, "%d ", &map[k][i][j]);
+            }
+        }
+    }
     fclose(file);
 }
 
@@ -237,7 +239,8 @@ void init_game(int level) {
     init_soldiers();
 }
 
-// ---------------------------- Sort Scoreboard -----------------------------
+// ---------------------------- Sort Scoreboard
+// -----------------------------
 
 typedef struct {
     int id;
@@ -260,7 +263,8 @@ void sort(Player *A, int n) {
     }
 }
 
-// ---------------------------- Menu & Scoreboard -----------------------------
+// ---------------------------- Menu & Scoreboard
+// -----------------------------
 
 int get_option(char options[][30], int n) {
     boxColor(renderer, 0, 0, window_width, window_width, BG_COLOR);
@@ -311,7 +315,7 @@ int show_menu(int back) {
     if (back) strcpy(options[6], "Back");
     int k = get_option(options, 7);
     if (k == 1)
-        load();
+        load_game();
     else if (k == 6) {
         show_scoreboard();
         result = show_menu(back);
@@ -559,7 +563,7 @@ int handle_events() {
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 SDL_GetMouseState(&x1, &y1);
-                if (inside_box(x1, y1, 0, window_width, 100,
+                if (inside_box(x1, y1, 0, 100, window_width,
                                window_width + bar_height)) {
                     show_menu(1);
                 }
@@ -601,8 +605,9 @@ int main() {
     SDL_SetWindowTitle(window, "state.io");
 
     init_font();
-    // init_players();
     srand(time(0));
+    load_maps();
+    load_scores();
 
     // game loop
     int tik = 0;
@@ -658,8 +663,9 @@ int main() {
         }
     }
 
+    save_scores();
     if (tik && confirm("Save game?")) {
-        save();
+        save_game();
     }
 
     // cleanup
