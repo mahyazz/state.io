@@ -59,7 +59,7 @@ bool inside_box(int x, int y, int x1, int x2, int y1, int y2) {
 
 void init_font() {
     TTF_Init();
-    font = TTF_OpenFont("FreeSans.ttf", 24);
+    font = TTF_OpenFont("resources/FreeSans.ttf", 24);
     if (font == NULL) {
         fprintf(stderr, "error: font not found\n");
         exit(EXIT_FAILURE);
@@ -124,7 +124,7 @@ void determine_score(int winner) {
 // ---------------------------- Save & Load -----------------------------
 
 void save_scores() {
-    FILE *file = fopen("scores.txt", "w");
+    FILE *file = fopen("data/scores.txt", "w");
     for (int i = 0; i < max_players; i++) {
         fprintf(file, "%d \n", score[i + 2]);
     }
@@ -132,7 +132,7 @@ void save_scores() {
 }
 
 void load_scores() {
-    FILE *file = fopen("scores.txt", "r");
+    FILE *file = fopen("data/scores.txt", "r");
     if (file == NULL) {
         return;
     }
@@ -143,7 +143,7 @@ void load_scores() {
 }
 
 void save_game() {
-    FILE *file = fopen("game.dat", "w");
+    FILE *file = fopen("data/game.dat", "w");
     // save potion
     fprintf(file, "%d %d %d %d %d %d\n", potion.type, potion.owner,
             potion.timer, potion.x, potion.y, potion.state);
@@ -171,7 +171,7 @@ void save_game() {
 }
 
 void load_game() {
-    FILE *file = fopen("game.dat", "r");
+    FILE *file = fopen("data/game.dat", "r");
     if (file == NULL) {
         return;
     }
@@ -203,7 +203,7 @@ void load_game() {
 }
 
 void load_maps() {
-    FILE *file = fopen("maps.txt", "r");
+    FILE *file = fopen("data/maps.txt", "r");
     if (file == NULL) {
         return;
     }
@@ -496,8 +496,8 @@ void move_soldiers() {
 }
 
 void move_to_target(int i, int j, int i2, int j2) {
-    printf("%d:%d -> %d:%d\n", i, j, i2, j2);
-    fflush(stdout);
+    // printf("%d:%d -> %d:%d\n", i, j, i2, j2);
+    // fflush(stdout);
     if (!board[i2][j2]) return;
     if (board[i][j] < our_player) return;
     int delay = 0;
@@ -544,30 +544,6 @@ void random_attacker() {
     }
 }
 
-// void send_help(int x, int y) {
-//     for (int i = 0; i < map_size; i++) {
-//         for (int j = 0; j < map_size; j++) {
-//             if (board[i][j] == board[x][y] && x != i && y != j) {
-//                 move_to_target(i, j, x, y);
-//                 return;
-//             }
-//         }
-//     }
-// }
-
-// void defend() {
-//     for (int i = 0; i < map_size; i++) {
-//         for (int j = 0; j < map_size; j++) {
-//             for (int t = 0; t < listsize; t++) {
-//                 if (list[t].i == i && list[t].j == j &&
-//                     list[t].owner != board[i][j]) {
-//                     send_help(i, j);
-//                 }
-//             }
-//         }
-//     }
-// }
-
 // ---------------------------- Potions -----------------------------
 
 bool player_has_potion(int player, int type) {
@@ -585,7 +561,7 @@ void show_potion() {
         potion.state = STATE_INACTIVE;
     }
     if (potion.state != STATE_ACTIVE) return;
-    image = SDL_LoadBMP("potion.bmp");
+    image = SDL_LoadBMP("resources/potion.bmp");
     texture = SDL_CreateTextureFromSurface(renderer, image);
     SDL_Rect dstrect = {potion.x - 20, potion.y - 25, 40, 50};
     SDL_RenderCopy(renderer, texture, NULL, &dstrect);
@@ -612,8 +588,6 @@ bool is_accessible(int x, int y, int r) {
                               dy = (y2 - y1) / iterations;
                         for (int k = 0; k < iterations; k++) {
                             if (dist2(x, y, x1, y1) <= r * r) {
-                                printf("%d:%d -> %.2f:%.2f\n", x, y, x1, y1);
-                                fflush(stdout);
                                 return true;
                             }
                             x1 += dx;
@@ -698,8 +672,6 @@ void init_sdl() {
 void cleanup() {
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
-    // SDL_DestroyTexture(texture);
-    // SDL_FreeSurface(image);
     TTF_Quit();
     SDL_Quit();
 }
