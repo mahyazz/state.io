@@ -73,10 +73,15 @@ void manage_conflict(int k) {
 
 void move_soldier(int k) {
     Soldier *sol = &list[k];
+    if (potion.state == STATE_TAKEN && potion.type == TYPE_FREEZE &&
+        potion.owner != sol->owner) {
+        return;
+    }
     if (sol->delay > 0) {
         sol->delay--;
     }
     manage_conflict(k);
+    manage_potion_cross(k);
     if (is_inside(k, sol->i, sol->j, eps)) {
         sol->dx = 0;
         sol->dy = 0;

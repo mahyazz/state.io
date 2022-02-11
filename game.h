@@ -14,6 +14,8 @@
 #define EVENT_CONTINUE 3
 #define EVENT_MENU 4
 
+#define INACTIVE 0
+
 #define BG_COLOR 0xfffaf9f8
 
 extern int board[map_size][map_size];
@@ -24,7 +26,6 @@ SDL_Renderer *renderer;
 SDL_Surface *surface;
 SDL_Texture *texture;
 SDL_Surface *image;
-SDL_Surface *potion;
 TTF_Font *font;
 
 // ---------------------------- Graphics -----------------------------
@@ -40,3 +41,26 @@ TTF_Font *font;
 #define eps 10
 #define speed 2
 #define leave_delay 12
+
+// ---------------------------- Potion -----------------------------
+
+typedef struct {
+    int type;
+    int owner;
+    int timer;
+    int x;
+    int y;
+    int state;
+} Potion;
+
+extern Potion potion;
+
+#define STATE_ACTIVE 1
+#define STATE_INACTIVE 2
+#define STATE_TAKEN 3
+
+#define TYPE_FREEZE 1
+
+// ---------------------------- Functions -----------------------------
+
+void manage_potion_cross(int k);

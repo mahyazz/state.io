@@ -1,4 +1,3 @@
-
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -17,6 +16,7 @@ int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
                             "Purple Pal"};
+Potion potion;
 
 // ---------------------------- Colors -----------------------------
 
@@ -82,6 +82,7 @@ void put_text(int x, int y, char *text, SDL_Color color) {
     rect.w = text_width;
     rect.h = text_height;
     SDL_RenderCopy(renderer, texture, NULL, &rect);
+    SDL_DestroyTexture(texture);
 }
 
 // ---------------------------- Score -----------------------------
@@ -458,8 +459,8 @@ void show_soldiers() {
 
 void move_soldiers() {
     for (int k = 0; k < listsize; k++) {
-        Soldier *sol = &list[k];
-        if (sol->owner && (sol->dx || sol->dy)) {
+        Soldier sol = list[k];
+        if (sol.owner && is_moving(k)) {
             move_soldier(k);
         }
     }
@@ -540,35 +541,75 @@ void random_attacker() {
 
 // ---------------------------- Potions -----------------------------
 
-void draw_potion(int i, int j) {
-    SDL_Surface *potion;
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, potion);
-    SDL_Rect dstrect = {i - 10, j - 10, i + 10, j + 10};
+void show_potion() {
+    if (--potion.timer <= 0) {
+        potion.state = STATE_INACTIVE;
+    }
+    if (potion.state != STATE_ACTIVE) return;
+    image = SDL_LoadBMP("potion.bmp");
+    texture = SDL_CreateTextureFromSurface(renderer, image);
+    SDL_Rect dstrect = {potion.x - 20, potion.y - 25, 40, 50};
     SDL_RenderCopy(renderer, texture, NULL, &dstrect);
+    SDL_FreeSurface(image);
+    SDL_DestroyTexture(texture);
+}
+
+float dist2(float x1, float y1, float x2, float y2) {
+    return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+}
+
+bool is_accessible(int x, int y, int r) {
+    for (int i = 0; i < map_size; i++) {
+        for (int j = 0; j < map_size; j++) {
+            for (int i2 = 0; i2 < map_size; i2++) {
+                for (int j2 = 0; j2 < map_size; j2++) {
+                    if (board[i][j] == 2 && board[i2][j2] >= 1) {
+                        float x1 = (j + 0.5) * cell_size;
+                        float y1 = (i + 0.5) * cell_size;
+                        float x2 = (j2 + 0.5) * cell_size;
+                        float y2 = (i2 + 0.5) * cell_size;
+                        float iterations = 50;
+                        float dx = (x2 - x1) / iterations,
+                              dy = (y2 - y1) / iterations;
+                        for (int k = 0; k < iterations; k++) {
+                            if (dist2(x, y, x1, y1) <= r * r) {
+                                printf("%d:%d -> %.2f:%.2f\n", x, y, x1, y1);
+                                fflush(stdout);
+                                return true;
+                            }
+                            x1 += dx;
+                            y1 += dy;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 
 void place_potion() {
-    int x = rand() % map_size;
-    int y = rand() % map_size;
+    while (potion.state == STATE_INACTIVE) {
+        int x = 25 + rand() % (window_width - 50);
+        int y = 25 + rand() % (window_height - 50);
 
-    int checki = 0, checkj = 0;
-    for (int i = 0; i < x; i++) {
-        checki = board[i][y] ? 1 : 0;
+        if (is_accessible(x, y, 7)) {
+            potion.x = x;
+            potion.y = y;
+            potion.state = STATE_ACTIVE;
+            potion.timer = 5 * FPS;
+        }
     }
-    for (int i = x; i < map_size; i++) {
-        checki = board[i][y] ? 1 : 0;
-    }
-    for (int j = 0; j < y; j++) {
-        checkj = board[x][j] ? 1 : 0;
-    }
-    for (int j = x; j < map_size; j++) {
-        checkj = board[x][j] ? 1 : 0;
-    }
+}
 
-    if (checki || checkj) {
-        draw_potion(x, y);
-    } else {
-        place_potion();
+void manage_potion_cross(int k) {
+    Soldier sol = list[k];
+    if (potion.state == STATE_ACTIVE &&
+        dist2(sol.x, sol.y, potion.x, potion.y) < 15 * 15) {
+        potion.state = STATE_TAKEN;
+        potion.type = TYPE_FREEZE;
+        potion.owner = sol.owner;
+        potion.timer = 5 * FPS;
     }
 }
 
@@ -618,9 +659,8 @@ void init_sdl() {
 void cleanup() {
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(image);
-    SDL_FreeSurface(potion);
+    // SDL_DestroyTexture(texture);
+    // SDL_FreeSurface(image);
     TTF_Quit();
     SDL_Quit();
 }
@@ -637,6 +677,7 @@ int main() {
     load_maps();
     create_random_map();
     load_scores();
+    potion.state = STATE_INACTIVE;
 
     int tik = 0;
     int event = 0;
@@ -656,7 +697,7 @@ int main() {
             if (event == EVENT_QUIT) break;
 
             update_board();
-            if (tik++ % (FPS / 1) == 0) {
+            if (tik % (FPS / 1) == 0) {
                 generate_soldiers();
             }
             draw_map();
@@ -664,8 +705,12 @@ int main() {
             random_attacker();
             move_soldiers();
             // defend();
-            // place_potion();
             show_soldiers();
+
+            if (tik % (FPS * 5) == 0) {
+                place_potion();
+            }
+            show_potion();
 
             SDL_RenderPresent(renderer);
             SDL_Delay(1000 / FPS);
@@ -676,6 +721,7 @@ int main() {
                 draw_bar();
                 break;
             }
+            tik++;
         }
         if (event == EVENT_QUIT) break;
         if (winner == our_player) {
