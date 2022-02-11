@@ -133,6 +133,9 @@ void save_scores() {
 
 void load_scores() {
     FILE *file = fopen("scores.txt", "r");
+    if (file == NULL) {
+        return;
+    }
     for (int i = 0; i < max_players; i++) {
         fscanf(file, "%d ", &score[i + 2]);
     }
@@ -169,6 +172,10 @@ void save_game() {
 
 void load_game() {
     FILE *file = fopen("game.dat", "r");
+    if (file == NULL) {
+        return;
+    }
+
     // load potion
     fscanf(file, "%d %d %d %d %d %d", &potion.type, &potion.owner,
            &potion.timer, &potion.x, &potion.y, &potion.state);
@@ -197,6 +204,10 @@ void load_game() {
 
 void load_maps() {
     FILE *file = fopen("maps.txt", "r");
+    if (file == NULL) {
+        return;
+    }
+
     for (int k = 0; k < num_maps; k++) {
         fscanf(file, "%d ", &num_players[k]);
         for (int i = 0; i < map_size; i++) {
