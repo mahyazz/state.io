@@ -13,10 +13,10 @@ int board[map_size][map_size];
 int soldiers[map_size][map_size];
 int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
-const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
-                            "Purple Pal"};
-const char potions[][25] = {"Freeze", "No Bound", "High Speed", "Low Speed",
-                            "No Attack"};
+char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
+                      "Purple Pal"};
+char potions[][25] = {"Freeze", "No Bound", "High Speed", "Low Speed",
+                      "No Attack"};
 Potion potion;
 
 // ---------------------------- Colors -----------------------------
@@ -253,6 +253,10 @@ void create_random_map() {
         if (i % (level) && j % (level)) continue;
         map[level][i][j] = 0;
     }
+    init_game(level);
+    if (find_winner()) {
+        create_random_map();
+    }
 }
 
 // ------------------------- Sort Scoreboard --------------------------
@@ -330,10 +334,7 @@ int show_menu(int back) {
     if (k == 1) {
         load_game();
     } else if (k == 6) {
-        current_level = num_maps - 1;
         create_random_map();
-        init_game(current_level);
-
     } else if (k == 7) {
         show_scoreboard();
         result = show_menu(back);
@@ -696,9 +697,12 @@ int main() {
     srand(time(0));
 
     // username
-    printf("Please enter your username (max 20 characters):\n");
+    printf("Please enter your username (press return to skip):\n");
     fflush(stdout);
-    // scanf("%s", players[0].user);
+    scanf("%[^\n]%*c", (char *)players[0]);
+    if (strlen(players[0]) == 0) {
+        strcpy(players[0], "You");
+    }
 
     init_sdl();
     load_maps();
