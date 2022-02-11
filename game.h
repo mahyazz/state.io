@@ -63,6 +63,7 @@ extern Potion potion;
 #define TYPE_NO_BOUND 2
 #define TYPE_HIGH_SPEED 3
 #define TYPE_LOW_SPEED 4
+#define TYPE_NO_ATTACK 5
 
 // ---------------------------- Functions -----------------------------
 

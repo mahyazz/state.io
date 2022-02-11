@@ -15,7 +15,8 @@ int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
                             "Purple Pal"};
-const char potions[][25] = {"Freeze", "No Bound", "High Speed", "Low Speed"};
+const char potions[][25] = {"Freeze", "No Bound", "High Speed", "Low Speed",
+                            "No Attack"};
 Potion potion;
 
 // ---------------------------- Colors -----------------------------
@@ -140,11 +141,9 @@ void load_scores() {
 
 void save_game() {
     FILE *file = fopen("game.dat", "w");
-    // save scores
-    for (int i = 0; i < max_players; i++) {
-        fprintf(file, "%d ", score[i + 2]);
-    }
-    fprintf(file, "\n");
+    // save potion
+    fprintf(file, "%d %d %d %d %d %d\n", potion.type, potion.owner,
+            potion.timer, potion.x, potion.y, potion.state);
 
     // save board
     fprintf(file, "%d\n", current_level);
@@ -170,10 +169,9 @@ void save_game() {
 
 void load_game() {
     FILE *file = fopen("game.dat", "r");
-    // load scores
-    for (int i = 0; i < max_players; i++) {
-        fscanf(file, "%d ", &score[i + 2]);
-    }
+    // load potion
+    fscanf(file, "%d %d %d %d %d %d", &potion.type, &potion.owner,
+           &potion.timer, &potion.x, &potion.y, &potion.state);
 
     // load board
     fscanf(file, "%d", &current_level);
@@ -237,6 +235,7 @@ void init_game(int level) {
     set_board(level);
     listsize = 0;
     init_soldiers();
+    potion.state = STATE_INACTIVE;
 }
 
 void create_random_map() {
@@ -625,7 +624,7 @@ void place_potion() {
             potion.x = x;
             potion.y = y;
             potion.state = STATE_ACTIVE;
-            potion.type = TYPE_LOW_SPEED;  // 1 + rand() % 4;
+            potion.type = 1 + rand() % 5;
             potion.timer = 5 * FPS;
         }
     }
@@ -705,7 +704,6 @@ int main() {
     load_maps();
     create_random_map();
     load_scores();
-    potion.state = STATE_INACTIVE;
 
     int tik = 0;
     int event = 0;
@@ -735,7 +733,7 @@ int main() {
             // defend();
             show_soldiers();
 
-            if (tik % (FPS * 5) == 0) {
+            if (rand() % (FPS * 5) == 0) {
                 place_potion();
             }
             show_potion();

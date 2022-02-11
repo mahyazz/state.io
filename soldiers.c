@@ -65,7 +65,10 @@ void manage_conflict(int k) {
             (is_moving(k2) || (sol->i == sol2->i && sol->j == sol2->j)) &&
             fabs(sol->x - sol2->x) < eps && fabs(sol->y - sol2->y) < eps) {
             remove_soldier(k);
-            remove_soldier(k2);
+            if (!player_has_potion(sol2->owner, TYPE_NO_ATTACK) ||
+                is_moving(k2)) {
+                remove_soldier(k2);
+            }
             break;
         }
     }
