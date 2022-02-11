@@ -16,6 +16,7 @@ int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
                             "Purple Pal"};
+const char potions[][25] = {"Freeze", "No Bound", "", ""};
 Potion potion;
 
 // ---------------------------- Colors -----------------------------
@@ -384,6 +385,22 @@ void draw_bar() {
     sprintf(str, "Level: %d   Score: %d", current_level + 1, score[our_player]);
     stringColor(renderer, window_width - strlen(str) * 8 - 12,
                 window_height + 12, str, gray);
+
+    // printf("type: %d\n", potion.type);
+    // fflush(stdout);
+
+    if (potion.state == STATE_TAKEN) {
+        float limit = 5 * FPS;
+        boxColor(renderer, 240, 604, 360, 624, colors[potion.owner][1]);
+        boxColor(renderer, 240 + (limit - potion.timer) / limit * 120, 604, 360,
+                 624, colors[potion.owner][0]);
+    }
+
+    if (potion.state != STATE_INACTIVE) {
+        char *s = (char *)potions[potion.type - 1];
+        stringColor(renderer, window_width / 2 - strlen(s) / 2 * 8,
+                    window_height + 12, s, gray);
+    }
 }
 
 // ---------------------------- Map -----------------------------
@@ -439,7 +456,10 @@ void update_board() {
 void generate_soldiers() {
     for (int i = 0; i < map_size; i++) {
         for (int j = 0; j < map_size; j++) {
-            if (board[i][j] > 1 && soldiers[i][j] < max_soldiers) {
+            if (board[i][j] > 1 &&
+                (soldiers[i][j] < max_soldiers ||
+                 potion.state == STATE_TAKEN && potion.type == TYPE_NO_BOUND &&
+                     potion.owner == board[i][j])) {
                 add_soldier(board[i][j], i, j);
                 soldiers[i][j]++;
             }
@@ -597,6 +617,7 @@ void place_potion() {
             potion.x = x;
             potion.y = y;
             potion.state = STATE_ACTIVE;
+            potion.type = 1 + rand() % 2;
             potion.timer = 5 * FPS;
         }
     }
@@ -607,7 +628,6 @@ void manage_potion_cross(int k) {
     if (potion.state == STATE_ACTIVE &&
         dist2(sol.x, sol.y, potion.x, potion.y) < 15 * 15) {
         potion.state = STATE_TAKEN;
-        potion.type = TYPE_FREEZE;
         potion.owner = sol.owner;
         potion.timer = 5 * FPS;
     }

@@ -60,6 +60,7 @@ extern Potion potion;
 #define STATE_TAKEN 3
 
 #define TYPE_FREEZE 1
+#define TYPE_NO_BOUND 2
 
 // ---------------------------- Functions -----------------------------
 
