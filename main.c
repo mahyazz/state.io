@@ -1,5 +1,4 @@
 #include <math.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,7 +15,7 @@ int map[num_maps][map_size][map_size];
 int score[7] = {-1, -1, 0, 0, 0, 0, 0};
 const char players[][25] = {"You", "Blue Pal", "Pink Pal", "Yellow Pal",
                             "Purple Pal"};
-const char potions[][25] = {"Freeze", "No Bound", "", ""};
+const char potions[][25] = {"Freeze", "No Bound", "High Speed", "Low Speed"};
 Potion potion;
 
 // ---------------------------- Colors -----------------------------
@@ -458,8 +457,7 @@ void generate_soldiers() {
         for (int j = 0; j < map_size; j++) {
             if (board[i][j] > 1 &&
                 (soldiers[i][j] < max_soldiers ||
-                 potion.state == STATE_TAKEN && potion.type == TYPE_NO_BOUND &&
-                     potion.owner == board[i][j])) {
+                 player_has_potion(board[i][j], TYPE_NO_BOUND))) {
                 add_soldier(board[i][j], i, j);
                 soldiers[i][j]++;
             }
@@ -561,6 +559,16 @@ void random_attacker() {
 
 // ---------------------------- Potions -----------------------------
 
+bool player_has_potion(int player, int type) {
+    return potion.state == STATE_TAKEN && potion.owner == player &&
+           potion.type == type;
+}
+
+bool others_has_potion(int player, int type) {
+    return potion.state == STATE_TAKEN && potion.owner != player &&
+           potion.type == type;
+}
+
 void show_potion() {
     if (--potion.timer <= 0) {
         potion.state = STATE_INACTIVE;
@@ -617,7 +625,7 @@ void place_potion() {
             potion.x = x;
             potion.y = y;
             potion.state = STATE_ACTIVE;
-            potion.type = 1 + rand() % 2;
+            potion.type = TYPE_LOW_SPEED;  // 1 + rand() % 4;
             potion.timer = 5 * FPS;
         }
     }
@@ -626,7 +634,7 @@ void place_potion() {
 void manage_potion_cross(int k) {
     Soldier sol = list[k];
     if (potion.state == STATE_ACTIVE &&
-        dist2(sol.x, sol.y, potion.x, potion.y) < 15 * 15) {
+        dist2(sol.x, sol.y, potion.x, potion.y) < 20 * 20) {
         potion.state = STATE_TAKEN;
         potion.owner = sol.owner;
         potion.timer = 5 * FPS;

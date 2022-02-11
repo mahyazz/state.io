@@ -1,7 +1,7 @@
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 #include <SDL2/SDL_ttf.h>
+#include <stdbool.h>
 
 #define map_size 5
 #define num_maps 5
@@ -61,7 +61,11 @@ extern Potion potion;
 
 #define TYPE_FREEZE 1
 #define TYPE_NO_BOUND 2
+#define TYPE_HIGH_SPEED 3
+#define TYPE_LOW_SPEED 4
 
 // ---------------------------- Functions -----------------------------
 
 void manage_potion_cross(int k);
+bool player_has_potion(int player, int type);
+bool others_has_potion(int player, int type);

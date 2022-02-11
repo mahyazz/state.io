@@ -73,8 +73,7 @@ void manage_conflict(int k) {
 
 void move_soldier(int k) {
     Soldier *sol = &list[k];
-    if (potion.state == STATE_TAKEN && potion.type == TYPE_FREEZE &&
-        potion.owner != sol->owner) {
+    if (others_has_potion(sol->owner, TYPE_FREEZE)) {
         return;
     }
     if (sol->delay > 0) {
@@ -87,8 +86,17 @@ void move_soldier(int k) {
         sol->dy = 0;
         set_locatoin(k, sol->i, sol->j);
     }
+
+    float factor = 1;
+    if (player_has_potion(sol->owner, TYPE_HIGH_SPEED)) {
+        factor = 2;
+    }
+    if (others_has_potion(sol->owner, TYPE_LOW_SPEED)) {
+        factor = 0.5;
+    }
+
     if (sol->delay == 0) {
-        sol->x += sol->dx;
-        sol->y += sol->dy;
+        sol->x += factor * sol->dx;
+        sol->y += factor * sol->dy;
     }
 }
